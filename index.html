@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Apex Learning Academy — Victorian Curriculum Practice</title>
+<title>Apex Academy — Victorian Curriculum Maths Practice</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -271,6 +271,21 @@
   }
   .sidebar-topic-btn.active .sidebar-icon { background: rgba(255,255,255,0.18); color: inherit; }
   .sidebar-divider { height: 1px; background: var(--grid); margin: 10px 4px; }
+
+  .sidebar-topic-btn.sidebar-tutor-highlight {
+    background: linear-gradient(135deg, #8B5CF6, #EC4899);
+    color: #fff;
+    font-weight: 800;
+    box-shadow: 0 0 0 1px rgba(139,92,246,0.3), 0 4px 14px rgba(139,92,246,0.4);
+    margin-bottom: 4px;
+    animation: tutor-pulse-glow 2.5s ease-in-out infinite;
+  }
+  .sidebar-topic-btn.sidebar-tutor-highlight:hover { filter: brightness(1.12); }
+  .sidebar-topic-btn.sidebar-tutor-highlight .sidebar-icon { background: rgba(255,255,255,0.22); }
+  @keyframes tutor-pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(139,92,246,0.3), 0 4px 14px rgba(139,92,246,0.4); }
+    50% { box-shadow: 0 0 0 1px rgba(236,72,153,0.4), 0 4px 20px rgba(236,72,153,0.6); }
+  }
 
   .practice-main { min-width: 0; flex: 1; }
 
@@ -1057,6 +1072,10 @@
         <span class="sidebar-icon">🏠</span>
         <span class="sidebar-topic-label"><span>Home</span></span>
       </button>
+      <button id="sidebar-tutor-btn" class="sidebar-topic-btn sidebar-tutor-highlight">
+        <span class="sidebar-icon">🤖</span>
+        <span class="sidebar-topic-label"><span>AI Tutor</span></span>
+      </button>
       <div class="sidebar-divider"></div>
       <button id="sidebar-maths-toggle" class="sidebar-topic-btn sidebar-category-btn">
         <span class="sidebar-icon">➗</span>
@@ -1097,7 +1116,6 @@
         <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
         <button class="tab-btn" data-tab="friends">Friends</button>
         <button class="tab-btn" data-tab="shop">Shop</button>
-        <button class="tab-btn" data-tab="tutor">🤖 AI Tutor</button>
         <button class="tab-btn" data-tab="feedback">Feedback</button>
         <button class="tab-btn" data-tab="profile">Profile</button>
         <button class="tab-btn hidden" data-tab="admin" id="admin-tab-btn">🛠 Admin</button>
@@ -2989,6 +3007,16 @@ $("#sidebar-english-toggle").addEventListener("click", () => {
 });
 
 $("#sidebar-home-btn").addEventListener("click", selectHome);
+
+$("#sidebar-tutor-btn").addEventListener("click", () => {
+  playSound("nav");
+  $$(".tab-btn").forEach((b) => b.classList.remove("active"));
+  ["practice", "leaderboard", "friends", "shop", "tutor", "feedback", "profile", "admin"].forEach((t) => {
+    const sec = $("#tab-" + t);
+    if (t === "tutor") show(sec); else hide(sec);
+  });
+  $("#tutor-input").focus();
+});
 
 function selectHome() {
   currentYearId = null; currentTopicId = null;
