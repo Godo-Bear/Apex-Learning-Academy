@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Apex Academy — Victorian Curriculum Maths Practice</title>
+<title>Apex Learning Academy — Victorian Curriculum Practice</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -501,7 +501,7 @@
   .feedback-status-tag.pending { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); color: var(--accent); }
 
   .tutor-chat-log { display: flex; flex-direction: column; gap: 12px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
-  .tutor-bubble { padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; max-width: 85%; }
+  .tutor-bubble { padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; max-width: 85%; white-space: pre-wrap; }
   .tutor-bubble.tutor-question { align-self: flex-end; background: var(--solid-bg); color: var(--solid-fg); border-bottom-right-radius: 2px; }
   .tutor-bubble.tutor-answer { align-self: flex-start; background: var(--paper); border: 1px solid var(--grid); color: var(--ink); border-bottom-left-radius: 2px; }
   .tutor-bubble.tutor-error { align-self: flex-start; background: color-mix(in srgb, var(--bad) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--bad) 30%, var(--grid)); color: var(--bad); }
@@ -4729,6 +4729,20 @@ async function renderFeedbackTab() {
 }
 
 // ---------------- AI Tutor ----------------
+function cleanTutorAnswer(text) {
+  return text
+    .replace(/\$\$(.*?)\$\$/g, "$1")
+    .replace(/\$(.*?)\$/g, "$1")
+    .replace(/\\times/g, "×")
+    .replace(/\\div/g, "÷")
+    .replace(/\\cdot/g, "×")
+    .replace(/#{1,6}\s?/g, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/---+/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 $("#tutor-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = $("#tutor-input");
@@ -4758,7 +4772,7 @@ $("#tutor-form").addEventListener("submit", async (e) => {
 
     const aBubble = document.createElement("div");
     aBubble.className = "tutor-bubble tutor-answer";
-    aBubble.textContent = data.answer || "Sorry, I couldn't come up with an answer.";
+    aBubble.textContent = data.answer ? cleanTutorAnswer(data.answer) : "Sorry, I couldn't come up with an answer.";
     log.appendChild(aBubble);
   } catch (err) {
     console.error("Apex Academy: AI Tutor request failed —", err);
