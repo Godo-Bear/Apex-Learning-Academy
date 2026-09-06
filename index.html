@@ -500,6 +500,13 @@
   .feedback-status-tag.resolved { background: color-mix(in srgb, var(--good) 18%, var(--surface)); color: var(--good); }
   .feedback-status-tag.pending { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); color: var(--accent); }
 
+  .tutor-chat-log { display: flex; flex-direction: column; gap: 12px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
+  .tutor-bubble { padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; max-width: 85%; }
+  .tutor-bubble.tutor-question { align-self: flex-end; background: var(--solid-bg); color: var(--solid-fg); border-bottom-right-radius: 2px; }
+  .tutor-bubble.tutor-answer { align-self: flex-start; background: var(--paper); border: 1px solid var(--grid); color: var(--ink); border-bottom-left-radius: 2px; }
+  .tutor-bubble.tutor-error { align-self: flex-start; background: color-mix(in srgb, var(--bad) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--bad) 30%, var(--grid)); color: var(--bad); }
+  .tutor-bubble.tutor-loading { align-self: flex-start; background: var(--paper); border: 1px solid var(--grid); color: var(--muted); font-style: italic; }
+
   /* Timed Challenge */
   .timed-best-row { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; padding: 10px 14px; background: var(--paper); border-radius: 10px; font-size: 14px; font-weight: 600; color: var(--muted); }
   .timed-lb-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--grid); font-size: 13px; }
@@ -1090,6 +1097,7 @@
         <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
         <button class="tab-btn" data-tab="friends">Friends</button>
         <button class="tab-btn" data-tab="shop">Shop</button>
+        <button class="tab-btn" data-tab="tutor">🤖 AI Tutor</button>
         <button class="tab-btn" data-tab="feedback">Feedback</button>
         <button class="tab-btn" data-tab="profile">Profile</button>
         <button class="tab-btn hidden" data-tab="admin" id="admin-tab-btn">🛠 Admin</button>
@@ -1395,6 +1403,19 @@
         <div id="mastery-card" class="card">
           <div id="mastery-title">Mastery by year level</div>
           <div id="mastery-chart"></div>
+        </div>
+      </section>
+
+      <!-- AI Tutor tab -->
+      <section id="tab-tutor" class="hidden">
+        <div class="card home-section">
+          <div class="home-section-title">🤖 AI Tutor</div>
+          <p class="home-tip-text" style="margin-bottom:14px;">Ask any Maths or English question and get a friendly explanation. This assistant only helps with those two subjects.</p>
+          <div id="tutor-chat-log"></div>
+          <form id="tutor-form" class="timed-answer-form" style="margin-top:12px;">
+            <input type="text" id="tutor-input" placeholder="Ask a Maths or English question..." autocomplete="off" required>
+            <button type="submit" class="btn btn-primary" id="tutor-submit-btn">Ask</button>
+          </form>
         </div>
       </section>
 
@@ -2843,7 +2864,7 @@ $$(".tab-btn").forEach((btn) => {
     playSound("nav");
     $$(".tab-btn").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
-    ["practice", "leaderboard", "friends", "shop", "feedback", "profile", "admin"].forEach((t) => {
+    ["practice", "leaderboard", "friends", "shop", "tutor", "feedback", "profile", "admin"].forEach((t) => {
       const sec = $("#tab-" + t);
       if (t === btn.dataset.tab) show(sec); else hide(sec);
     });
@@ -2851,6 +2872,7 @@ $$(".tab-btn").forEach((btn) => {
     if (btn.dataset.tab === "leaderboard") renderLeaderboard();
     if (btn.dataset.tab === "friends") renderFriends();
     if (btn.dataset.tab === "shop") renderShop();
+    if (btn.dataset.tab === "tutor") { $("#tutor-input").focus(); }
     if (btn.dataset.tab === "feedback") renderFeedbackTab();
     if (btn.dataset.tab === "profile") renderProfile();
     if (btn.dataset.tab === "admin") renderAdmin();
@@ -4705,6 +4727,51 @@ async function renderFeedbackTab() {
     list.appendChild(item);
   });
 }
+
+// ---------------- AI Tutor ----------------
+$("#tutor-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = $("#tutor-input");
+  const question = input.value.trim();
+  if (!question) return;
+
+  const log = $("#tutor-chat-log");
+  const qBubble = document.createElement("div");
+  qBubble.className = "tutor-bubble tutor-question";
+  qBubble.textContent = question;
+  log.appendChild(qBubble);
+
+  const loadingBubble = document.createElement("div");
+  loadingBubble.className = "tutor-bubble tutor-loading";
+  loadingBubble.textContent = "Thinking…";
+  log.appendChild(loadingBubble);
+  log.scrollTop = log.scrollHeight;
+
+  input.value = "";
+  $("#tutor-submit-btn").disabled = true;
+
+  try {
+    const { data, error } = await sb.functions.invoke("ask-tutor", { body: { question } });
+    loadingBubble.remove();
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+
+    const aBubble = document.createElement("div");
+    aBubble.className = "tutor-bubble tutor-answer";
+    aBubble.textContent = data.answer || "Sorry, I couldn't come up with an answer.";
+    log.appendChild(aBubble);
+  } catch (err) {
+    console.error("Apex Academy: AI Tutor request failed —", err);
+    loadingBubble.remove();
+    const errBubble = document.createElement("div");
+    errBubble.className = "tutor-bubble tutor-error";
+    errBubble.textContent = "Sorry, something went wrong reaching the tutor. Please try again in a moment.";
+    log.appendChild(errBubble);
+  }
+  log.scrollTop = log.scrollHeight;
+  $("#tutor-submit-btn").disabled = false;
+  input.focus();
+});
 
 $("#feedback-submit-btn").addEventListener("click", async () => {
   const msg = $("#feedback-message").value.trim();
