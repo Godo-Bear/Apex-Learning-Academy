@@ -4583,6 +4583,7 @@ $("#admin-users-list").addEventListener("click", async (e) => {
     if (isMe) {
       $("#header-points").textContent = (users[currentUsername] ? users[currentUsername].points : 0) + " pts";
       renderXpBadge(users[currentUsername]);
+      renderHome();
       renderShop();
       renderSidebar();
       renderPracticeView();
