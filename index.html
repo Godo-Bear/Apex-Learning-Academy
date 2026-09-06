@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Apex Academy — Victorian Curriculum Practice</title>
+<title>Apex Academy — Victorian Curriculum Maths Practice</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -399,6 +399,12 @@
   .rank-row.current-rank { background: color-mix(in srgb, #8B5CF6 14%, var(--surface)); font-weight: 700; }
   .rank-row-left { display: flex; align-items: center; gap: 8px; }
   .rank-row-points { font-family: 'JetBrains Mono', monospace; color: var(--muted); font-size: 12px; }
+  .xp-bar-box { padding: 12px 14px; background: color-mix(in srgb, #8B5CF6 8%, var(--surface)); border-radius: 10px; border: 1px solid color-mix(in srgb, #8B5CF6 20%, var(--grid)); }
+  .xp-bar-header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .xp-bar-header span:last-child { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--muted); font-size: 12px; }
+  .xp-bar-track { height: 10px; background: var(--grid); border-radius: 6px; overflow: hidden; }
+  .xp-bar-fill { height: 100%; background: linear-gradient(90deg, #A78BFA, #8B5CF6); border-radius: 6px; transition: width 0.4s ease; }
+  .xp-bar-next { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
 
   /* Avatar shop — card grid like a game shop */
   .shop-filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -1086,6 +1092,17 @@
                 </div>
               </div>
 
+              <div class="card home-section" id="xp-bar-card">
+                <div class="xp-bar-header">
+                  <span id="xp-bar-rank-icon" class="xp-bar-icon">🌱</span>
+                  <span id="xp-bar-rank-name" class="xp-bar-name">Rookie</span>
+                  <span id="xp-bar-progress-text" class="xp-bar-progress-text"></span>
+                </div>
+                <div class="xp-bar-track">
+                  <div id="xp-bar-fill" class="xp-bar-fill" style="width:0%;"></div>
+                </div>
+              </div>
+
               <div class="card home-section" id="daily-challenge-card">
                 <div class="home-section-header">
                   <span class="home-section-title">⚡ Daily Challenge</span>
@@ -1132,7 +1149,9 @@
                   <button id="share-trophy-btn" class="btn btn-secondary" style="padding:6px 12px; font-size:12px;">🔗 Share with friends</button>
                 </div>
                 <div id="home-trophy-room" class="trophy-grid"></div>
-                <div class="home-section-title" style="margin-top:20px; font-size:14px;">Ranks</div>
+                <div class="home-section-title" style="margin-top:20px; font-size:14px;">Your Rank</div>
+                <div id="home-xp-bar-box" class="xp-bar-box"></div>
+                <div class="home-section-title" style="margin-top:16px; font-size:14px;">Ranks</div>
                 <div id="home-ranks-list" style="margin-top:10px;"></div>
               </div>
 
@@ -2206,6 +2225,7 @@ function ensureUserProps(u) {
   if (!u.manualBadges) u.manualBadges = [];
   if (typeof u.hadPerfectRound !== "boolean") u.hadPerfectRound = false;
   if (typeof u.points !== "number") u.points = 0;
+  if (typeof u.xp !== "number") u.xp = 0;
   if (typeof u.isAdmin !== "boolean") u.isAdmin = false;
   if (typeof u.streak !== "number") u.streak = 0;
   if (typeof u.longestStreak !== "number") u.longestStreak = 0;
@@ -2259,6 +2279,7 @@ function syncCurrentUserToSupabase() {
       const { error } = await sb.from("profiles")
         .update({
           points: me.points,
+          xp: me.xp || 0,
           friends: me.friends || [],
           progress: me.progress || {},
           show_points: me.showPoints !== false,
@@ -2567,12 +2588,12 @@ $("#admin-revoke-btn").addEventListener("click", () => {
 async function handleAuthenticatedUser(authUser) {
   currentAuthUser = { id: authUser.id, email: authUser.email };
 
-  let { data: profile, error } = await sb.from("profiles").select("has_paid, username, points, friends, progress, show_points, is_admin, celebrated_milestones, week_start_points, week_start_date, last_week_earned, last_daily_challenge, daily_challenge_progress, manual_badges, agreed_to_terms").eq("id", authUser.id).single();
+  let { data: profile, error } = await sb.from("profiles").select("has_paid, username, points, xp, friends, progress, show_points, is_admin, celebrated_milestones, week_start_points, week_start_date, last_week_earned, last_daily_challenge, daily_challenge_progress, manual_badges, agreed_to_terms").eq("id", authUser.id).single();
 
   if (error && error.code === "PGRST116") {
     // No profile row exists yet (first real login after signup) — create one now.
     const { error: insertError } = await sb.from("profiles").insert({
-      id: authUser.id, email: authUser.email, has_paid: false, points: 0, friends: [], progress: {},
+      id: authUser.id, email: authUser.email, has_paid: false, points: 0, xp: 0, friends: [], progress: {},
       show_points: true, is_admin: false, celebrated_milestones: [], week_start_points: 0,
       week_start_date: todayStr(), last_week_earned: 0, last_daily_challenge: null, daily_challenge_progress: {}, manual_badges: [], agreed_to_terms: false,
     });
@@ -2608,6 +2629,7 @@ function enterApp(displayName, profile) {
   currentUsername = displayName;
   if (profile) {
     users[displayName].points = profile.points || 0;
+    users[displayName].xp = profile.xp || 0;
     users[displayName].friends = profile.friends || [];
     if (profile.progress && Object.keys(profile.progress).length) {
       users[displayName].progress = { ...users[displayName].progress, ...profile.progress };
@@ -2659,7 +2681,7 @@ $("#daily-challenge-form").addEventListener("submit", (e) => {
   if (!me.dailyChallengeDone) me.dailyChallengeDone = {};
   me.dailyChallengeDone[diff] = todayStr();
   me.lastDailyChallenge = todayStr();
-  if (correct) me.points += bonus;
+  if (correct) { me.points += bonus; me.xp = (me.xp || 0) + bonus; }
   if (me.progress[q.topicId]) {
     me.progress[q.topicId].attempted += 1;
     if (correct) me.progress[q.topicId].correct += 1;
@@ -2791,7 +2813,7 @@ function renderApp() {
 }
 
 function renderXpBadge(user) {
-  const { current } = getLevelInfo(user.points, user.isAdmin);
+  const { current } = getLevelInfo(user.xp, user.isAdmin);
   $("#header-xp-icon").innerHTML = current.icon;
   $("#header-xp-name").textContent = current.name;
 }
@@ -3032,7 +3054,21 @@ function renderHome() {
     trophyBox.appendChild(card);
   });
 
-  const { current } = getLevelInfo(me.points, me.isAdmin);
+  const { current, next, progressPct } = getLevelInfo(me.xp, me.isAdmin);
+  const xpBarBox = $("#home-xp-bar-box");
+  if (me.isAdmin) {
+    xpBarBox.innerHTML = `
+      <div class="xp-bar-header"><span>${current.icon} ${current.name}</span><span>Max rank</span></div>
+      <div class="xp-bar-track"><div class="xp-bar-fill" style="width:100%;"></div></div>
+    `;
+  } else {
+    xpBarBox.innerHTML = `
+      <div class="xp-bar-header"><span>${current.icon} ${current.name}</span><span>${me.xp} / ${next ? next.min : current.min} XP</span></div>
+      <div class="xp-bar-track"><div class="xp-bar-fill" style="width:${progressPct}%;"></div></div>
+      ${next ? `<p class="xp-bar-next">${next.min - me.xp} XP to reach ${next.icon} ${next.name}</p>` : `<p class="xp-bar-next">Highest earnable rank!</p>`}
+    `;
+  }
+
   const ranksBox = $("#home-ranks-list");
   ranksBox.innerHTML = "";
   XP_LEVELS.forEach((lvl, i) => {
@@ -3041,7 +3077,7 @@ function renderHome() {
     row.className = "rank-row" + (isCurrent ? " current-rank" : "");
     row.innerHTML = `
       <div class="rank-row-left"><span>${lvl.icon}</span><span>${lvl.name}${isCurrent ? " (you)" : ""}</span></div>
-      <span class="rank-row-points">${lvl.min}+ pts</span>
+      <span class="rank-row-points">${lvl.min}+ XP</span>
     `;
     ranksBox.appendChild(row);
   });
@@ -3409,6 +3445,7 @@ async function submitChallengeAnswers(c, otherName) {
 
     const me = users[currentUsername];
     me.points += score;
+    me.xp = (me.xp || 0) + score;
     saveUsers(users);
     $("#header-points").textContent = me.points + " pts";
     renderXpBadge(me);
@@ -3565,6 +3602,7 @@ function endTimedChallenge() {
   me.progress[topicId].attempted += timedState.attempted;
   me.progress[topicId].correct += timedState.correct;
   me.points += timedState.score;
+  me.xp = (me.xp || 0) + timedState.score;
   updateStreak(me);
 
   const prevBest = (me.timedBest && me.timedBest[topicId]) || 0;
@@ -3678,6 +3716,7 @@ $("#check-answers-btn").addEventListener("click", () => {
   me.progress[currentTopicId].attempted += pool.length;
   me.progress[currentTopicId].correct += correctCount;
   me.points += pointsEarned;
+  me.xp = (me.xp || 0) + pointsEarned;
   if (correctCount === pool.length) me.hadPerfectRound = true;
   updateStreak(me);
   checkBadges(me);
@@ -4320,7 +4359,7 @@ async function renderAdmin() {
   const list = $("#admin-users-list");
   let allProfiles = [];
   try {
-    const { data, error } = await sb.from("profiles").select("id, username, email, points, has_paid, is_admin, progress, manual_badges");
+    const { data, error } = await sb.from("profiles").select("id, username, email, points, xp, has_paid, is_admin, progress, manual_badges");
     if (error) throw error;
     allProfiles = data || [];
   } catch (e) {
@@ -4421,11 +4460,13 @@ async function renderAdmin() {
       row.innerHTML = `
         <div class="admin-row-info">
           <span class="admin-row-name">${name}${isMe ? " (you)" : ""}${p.is_admin ? " 🛡️" : ""}${!p.has_paid ? " 🚫" : ""}</span>
-          <span class="admin-row-meta">${p.points || 0} pts · ${attempted} attempted${!p.has_paid ? " · <strong style='color:var(--bad)'>Suspended / unpaid</strong>" : ""}</span>
+          <span class="admin-row-meta">${p.points || 0} pts · ${p.xp || 0} XP · ${attempted} attempted${!p.has_paid ? " · <strong style='color:var(--bad)'>Suspended / unpaid</strong>" : ""}</span>
         </div>
         <div class="admin-row-actions">
           <button class="admin-btn" data-action="add-points" data-id="${p.id}" data-name="${name}">+10 pts</button>
           <button class="admin-btn" data-action="set-points" data-id="${p.id}" data-name="${name}">Set pts…</button>
+          <button class="admin-btn" data-action="add-xp" data-id="${p.id}" data-name="${name}">+10 XP</button>
+          <button class="admin-btn" data-action="set-xp" data-id="${p.id}" data-name="${name}">Set XP…</button>
           <button class="admin-btn" data-action="reset-progress" data-id="${p.id}" data-name="${name}">Reset progress</button>
           <button class="admin-btn admin-flag" data-action="badges" data-id="${p.id}" data-name="${name}">🏆 Badges</button>
           <button class="admin-btn admin-flag" data-action="toggle-admin" data-id="${p.id}" data-name="${name}">${p.is_admin ? "Remove admin" : "Make admin"}</button>
@@ -4500,6 +4541,20 @@ $("#admin-users-list").addEventListener("click", async (e) => {
       const { error } = await sb.from("profiles").update({ points: num }).eq("id", id);
       if (error) { console.error("Apex Academy: set-points failed —", error); alert(`Couldn't update points for ${name}: ${error.message}`); return; }
       if (isMe) { users[currentUsername].points = num; saveUsers(users); }
+    } else if (action === "add-xp") {
+      const { data: current } = await sb.from("profiles").select("xp").eq("id", id).single();
+      const newXp = (current?.xp || 0) + 10;
+      const { error } = await sb.from("profiles").update({ xp: newXp }).eq("id", id);
+      if (error) { console.error("Apex Academy: add-xp failed —", error); alert(`Couldn't update XP for ${name}: ${error.message}`); return; }
+      if (isMe) { users[currentUsername].xp = newXp; saveUsers(users); }
+    } else if (action === "set-xp") {
+      const val = prompt(`Set XP for ${name}:`);
+      if (val === null) return;
+      const num = parseInt(val, 10);
+      if (isNaN(num)) return alert("Please enter a whole number.");
+      const { error } = await sb.from("profiles").update({ xp: num }).eq("id", id);
+      if (error) { console.error("Apex Academy: set-xp failed —", error); alert(`Couldn't update XP for ${name}: ${error.message}`); return; }
+      if (isMe) { users[currentUsername].xp = num; saveUsers(users); }
     } else if (action === "reset-progress") {
       if (!confirm(`Reset all progress and points for ${name}? This can't be undone.`)) return;
       const { error } = await sb.from("profiles").update({ points: 0, progress: {} }).eq("id", id);
@@ -4527,6 +4582,7 @@ $("#admin-users-list").addEventListener("click", async (e) => {
     renderAdmin();
     if (isMe) {
       $("#header-points").textContent = (users[currentUsername] ? users[currentUsername].points : 0) + " pts";
+      renderXpBadge(users[currentUsername]);
       renderShop();
       renderSidebar();
       renderPracticeView();
